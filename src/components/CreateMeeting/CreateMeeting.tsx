@@ -25,6 +25,9 @@ import CloseIcon from "@mui/icons-material/Close";
 import CheckIcon from "@mui/icons-material/Check";
 import { MeetingButton } from "./components/MeetingButton";
 import moment, { Moment } from "moment";
+import {  setMeetings } from "../../redux/slices/meetingsSlice";
+import { useDispatch, useSelector } from "react-redux";
+import { AppDispatch, RootState } from "../../redux/store";
 
 type MeetingType = "instant" | "scheduled";
 interface GuestOption {
@@ -89,17 +92,15 @@ const schema = Yup.object().shape({
   }),
   startTime: Yup.string().when("$meetingType", {
     is: "scheduled",
-    then: (schema) =>
-      schema
-        .required("Start time is required"),
-        // .test(
-        //   "isValidStartTime",
-        //   "Start time must be before end time",
-        //   function (value) {
-        //     const { endTime } = this.parent;
-        //     return !endTime || value < endTime;
-        //   }
-        // ),
+    then: (schema) => schema.required("Start time is required"),
+    // .test(
+    //   "isValidStartTime",
+    //   "Start time must be before end time",
+    //   function (value) {
+    //     const { endTime } = this.parent;
+    //     return !endTime || value < endTime;
+    //   }
+    // ),
     otherwise: (schema) => schema.nullable(),
   }),
   endTime: Yup.string().when("$meetingType", {
@@ -189,6 +190,8 @@ const CreateMeeting = () => {
   const [endDate] = useState<any>();
   const [extraCount, setExtraCount] = useState(0);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const dispatch = useDispatch<AppDispatch>();
+  const meetings = useSelector((state: RootState) => state.meetings.meetings);
 
   const methods = useForm({
     resolver: yupResolver(schema),
@@ -276,8 +279,29 @@ const CreateMeeting = () => {
   }, [extraCount, selectedGuests]);
 
   const onSubmit = (data: any) => {
-    console.log("Form Data:", data);
+    const { startDate, endDate, startTime, endTime, description, meetingTitle } = data;
+    const newMeeting = {
+      id: Math.floor(Math.random() * 10000),  // Use a better unique ID in real applications
+      title: meetingTitle,
+      time: `${startTime} - ${endTime}`,
+      participant: description,
+    };
+    let currentDate = new Date(startDate);
+    const end = new Date(endDate);
+    let newMeetings = JSON.parse(JSON.stringify(meetings));
+    while (currentDate <= end) {
+      const formattedDate = currentDate.toISOString().split('T')[0];
+      if (!newMeetings[formattedDate]) {
+        newMeetings[formattedDate] = [];
+      }
+      newMeetings[formattedDate].push(newMeeting);
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+    dispatch(setMeetings(newMeetings));
+    reset()
+    setValue("meetingTitle", "");
   };
+  
 
   const handleSelectGuest = (event: any, value: GuestOption | null) => {
     if (!value) return;
@@ -305,10 +329,6 @@ const CreateMeeting = () => {
   const disablePastDates = (current: Moment) => {
     return current.isBefore(moment(), "day"); // Disable dates before today
   };
-
-  
-
-  console.log(errors, "errors");
 
   return (
     <div className="create-meeting">
@@ -479,9 +499,7 @@ const CreateMeeting = () => {
                           sx={customStyle}
                           {...field}
                           value={
-                            field.value
-                              ? dayjs(field.value, "hh:mm A")
-                              : null
+                            field.value ? dayjs(field.value, "hh:mm A") : null
                           }
                           onChange={(newValue) =>
                             field.onChange(
@@ -495,7 +513,7 @@ const CreateMeeting = () => {
                               placeholder: "00:00 AM",
                             },
                           }}
-                          minTime={ dayjs(watch("startDate"))}
+                          minTime={dayjs(watch("startDate"))}
                         />
                       </LocalizationProvider>
                       {errors.endTime && (

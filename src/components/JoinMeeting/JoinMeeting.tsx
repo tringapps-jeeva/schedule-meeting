@@ -5,54 +5,15 @@ import moment, { Moment } from "moment";
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import VideocamOutlinedIcon from "@mui/icons-material/VideocamOutlined";
+import { useSelector } from "react-redux";
+import { RootState } from "../../redux/store";
 
-interface Meeting {
-  id: number;
-  title: string;
-  time: string;
-  participant: string;
-}
-
-const meetings: { [key: string]: Meeting[] } = {
-  "2024-12-03": [
-    {
-      id: 1,
-      title: "Product marketing meeting",
-      time: "11:00 AM - 11:45 AM",
-      participant: "Jane Cooper",
-    },
-    {
-      id: 2,
-      title: "User research discussion",
-      time: "12:30 PM - 1:30 PM",
-      participant: "Darrell Steward",
-    },
-    {
-      id: 3,
-      title: "Design review session",
-      time: "2:15 PM - 3:00 PM",
-      participant: "Robert Fox",
-    },
-    {
-      id: 4,
-      title: "Design review session",
-      time: "2:15 PM - 3:00 PM",
-      participant: "Robert Fox",
-    },
-  ],
-  "2024-12-12": [
-    {
-      id: 4,
-      title: "Team brainstorming session",
-      time: "10:00 AM - 11:30 AM",
-      participant: "Alice Johnson",
-    },
-  ],
-};
 
 const JoinMeeting = () => {
   const [selectedDate, setSelectedDate] = useState<Moment>(moment()); // Use Moment for date handling
   const [showCalendar, setShowCalendar] = useState(false);
+  const meetings = useSelector((state: RootState) => state.meetings.meetings);
+
 
   const handleDateChange = (date: any) => {
     if (date) {
