@@ -4,6 +4,7 @@ import CreateMeeting from './components/CreateMeeting/CreateMeeting';
 import JoinMeeting from './components/JoinMeeting/JoinMeeting';
 
 function App() {
+  
   return (
     <div className="tring-meeting-lobby">
       <CreateMeeting/>

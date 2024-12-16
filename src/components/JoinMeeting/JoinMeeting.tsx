@@ -1,108 +1,74 @@
-import { DatePicker } from "antd";
-import { Button } from "@mui/material";
+import {
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+} from "@mui/material";
 import { useEffect, useRef, useState } from "react";
 import moment, { Moment } from "moment";
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import VideocamOutlinedIcon from "@mui/icons-material/VideocamOutlined";
 import { useSelector } from "react-redux";
+import Calendar from "react-calendar";
+import "react-calendar/dist/Calendar.css";
 import { RootState } from "../../redux/store";
-
+import { formatDateForHeading, formatDateForMeetingsKey } from "../../utils/helper";
 
 const JoinMeeting = () => {
-  const [selectedDate, setSelectedDate] = useState<Moment>(moment()); // Use Moment for date handling
-  const [showCalendar, setShowCalendar] = useState(false);
+
+  const [openModal, setOpenModal] = useState(false);
   const meetings = useSelector((state: RootState) => state.meetings.meetings);
+  const [value, onChange] = useState<Moment | null>(moment());
+  const handleOpenModal = () => setOpenModal(true);
+  const handleCloseModal = () => setOpenModal(false);
 
-
-  const handleDateChange = (date: any) => {
-    if (date) {
-      setSelectedDate(date);
-      setShowCalendar(false);
-    }
-  };
-
-  const formatDateForMeetingsKey = (date: Moment): string => {
-    return date.format("YYYY-MM-DD");
-  };
-
-  const formatDateForHeading = (date: Moment): string => {
-    // If the selected date is today, show "Today"
-    if (date.isSame(moment(), "day")) {
-      return "Today";
-    }
-    return date.format("MMMM D, YYYY");
-  };
-
-  const disablePastDates = (current: Moment) => {
-    return current.isBefore(moment(), "day"); // Disable dates before today
-  };
-
-  const calendarRef = useRef<HTMLDivElement | null>(null); // Ref for the calendar container
-
-  const handleClickOutside = (event: MouseEvent) => {
-    console.log("outside clicking");
-    if (
-      calendarRef.current &&
-      !calendarRef.current.contains(event.target as Node)
-    ) {
-      // setShowCalendar(false);
-    }
-  };
-
-  useEffect(() => {
-    document.addEventListener("mousedown", handleClickOutside);
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, []);
 
   const meetingsForDate =
-    selectedDate && meetings[formatDateForMeetingsKey(selectedDate)]
-      ? meetings[formatDateForMeetingsKey(selectedDate)]
+    value && meetings[formatDateForMeetingsKey(value)]
+      ? meetings[formatDateForMeetingsKey(value)]
       : [];
+
+  const JoinMeeting = (id: string) => {
+    window.location.href = `https://dev-hub.tringbytes.com/meeting/${id}`;
+  };
+
+  const handleCalendarChange = (date: any) => {
+    setOpenModal(false);
+    if (Array.isArray(date)) {
+      onChange(moment(date[0]));
+    } else {
+      onChange(moment(date));
+    }
+  };
+
+  console.log(meetings, "meetings")
+
+  const meetingDates = new Set(
+    Object.keys(meetings).map((date) => new Date(date).toDateString())
+  );
+
+  
 
   return (
     <div className="join-meeting">
-      <h1>Upcoming meetings</h1>
+      <p className="title-meeting">Upcoming meetings</p>
       <div className="header">
-        <div className="date">{formatDateForHeading(selectedDate)}</div>
+        <div className="date">{formatDateForHeading(value || moment())}</div>
         <div style={{ position: "relative", display: "inline-block" }}>
           <div
             style={{ fontSize: "18px", cursor: "pointer" }}
-            onClick={() => setShowCalendar(!showCalendar)}
-            ref={calendarRef}
+            onClick={handleOpenModal} // Open the modal
           >
             <CalendarMonthIcon sx={{ color: "#4A98F8 !important" }} />
           </div>
-          {showCalendar && (
-            <div
-              style={{
-                position: "absolute",
-                zIndex: 1000,
-                background: "white",
-                boxShadow: "0px 4px 6px rgba(0,0,0,0.1)",
-                borderRadius: "8px",
-              }}
-            >
-              <DatePicker
-                open={true}
-                onChange={handleDateChange}
-                value={selectedDate}
-                style={{ visibility: "hidden", position: "absolute" }} // Hides the input field only
-                popupStyle={{ marginTop: "-40px !important" }} // Proper spacing below the button
-                popupClassName="calender-ant-picker"
-                disabledDate={disablePastDates}
-              />
-            </div>
-          )}
         </div>
       </div>
 
       <div className="meetings-div">
         {meetingsForDate.length > 0 ? (
-          meetingsForDate.map((meeting) => (
+          meetingsForDate.map((meeting: any) => (
             <div key={meeting.id} className="meeting-card">
               <div className="outer-div">
                 <div className="title">{meeting.title}</div>
@@ -135,6 +101,7 @@ const JoinMeeting = () => {
                   variant="outlined"
                   disableRipple
                   disableElevation
+                  onClick={() => JoinMeeting(meeting.meetId)}
                 >
                   Join
                 </Button>
@@ -147,6 +114,21 @@ const JoinMeeting = () => {
           </p>
         )}
       </div>
+
+      <Dialog open={openModal} onClose={handleCloseModal}>
+        <DialogTitle>Select Date</DialogTitle>
+        <DialogContent>
+          <Calendar
+            onChange={handleCalendarChange}
+            minDate={new Date()}
+            value={value ? value.toDate() : new Date()}
+            tileClassName={({ date, view }) =>
+              view === "month" && meetingDates.has(date.toDateString())
+                ? "highlight" 
+                : null
+            }          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

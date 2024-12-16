@@ -15,185 +15,35 @@ import {
 } from "@mui/material";
 import { LocalizationProvider, DesktopTimePicker } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
-import { DatePicker } from "antd";
 import React, { useCallback, useEffect, useState } from "react";
 import { FormProvider, Controller, useForm } from "react-hook-form";
-import { yupResolver } from "@hookform/resolvers/yup";
-import * as Yup from "yup";
 import dayjs from "dayjs";
 import CloseIcon from "@mui/icons-material/Close";
 import CheckIcon from "@mui/icons-material/Check";
-import { MeetingButton } from "./components/MeetingButton";
+
 import moment, { Moment } from "moment";
-import {  setMeetings } from "../../redux/slices/meetingsSlice";
 import { useDispatch, useSelector } from "react-redux";
 import { AppDispatch, RootState } from "../../redux/store";
-
-type MeetingType = "instant" | "scheduled";
-interface GuestOption {
-  email: string;
-  selected: boolean;
-}
-const guestsData: GuestOption[] = [
-  { email: "john.doe@example.com", selected: false },
-  { email: "jane.doe@example.com", selected: false },
-  { email: "guest1@example.com", selected: false },
-  { email: "guest2@example.com", selected: false },
-  { email: "mike.smith@example.com", selected: false },
-  { email: "sarah.connor@example.com", selected: false },
-  { email: "emma.brown@example.com", selected: false },
-  { email: "oliver.jones@example.com", selected: false },
-  { email: "ava.taylor@example.com", selected: false },
-  { email: "william.johnson@example.com", selected: false },
-  { email: "sophia.martin@example.com", selected: false },
-  { email: "james.anderson@example.com", selected: false },
-  { email: "mia.thompson@example.com", selected: false },
-  { email: "charlotte.moore@example.com", selected: false },
-  { email: "liam.walker@example.com", selected: false },
-  { email: "isabella.white@example.com", selected: false },
-  { email: "elijah.hall@example.com", selected: false },
-  { email: "amelia.clark@example.com", selected: false },
-  { email: "lucas.lewis@example.com", selected: false },
-  { email: "harper.scott@example.com", selected: false },
-];
-
-const schema = Yup.object().shape({
-  meetingTitle: Yup.string().required("Meeting title is required"),
-  description: Yup.string(),
-  startDate: Yup.date().when("$meetingType", {
-    is: "scheduled",
-    then: (schema) =>
-      schema
-        .required("Start date is required")
-        .test(
-          "isValidStartDate",
-          "Start date must be before end date",
-          function (value) {
-            const { endDate } = this.parent;
-            return !endDate || new Date(value) <= new Date(endDate);
-          }
-        ),
-    otherwise: (schema) => schema.nullable(),
-  }),
-  endDate: Yup.date().when("$meetingType", {
-    is: "scheduled",
-    then: (schema) =>
-      schema
-        .required("End date is required")
-        .test(
-          "isValidEndDate",
-          "End date must be after start date",
-          function (value) {
-            const { startDate } = this.parent;
-            return !startDate || new Date(value) >= new Date(startDate);
-          }
-        ),
-    otherwise: (schema) => schema.nullable(),
-  }),
-  startTime: Yup.string().when("$meetingType", {
-    is: "scheduled",
-    then: (schema) => schema.required("Start time is required"),
-    // .test(
-    //   "isValidStartTime",
-    //   "Start time must be before end time",
-    //   function (value) {
-    //     const { endTime } = this.parent;
-    //     return !endTime || value < endTime;
-    //   }
-    // ),
-    otherwise: (schema) => schema.nullable(),
-  }),
-  endTime: Yup.string().when("$meetingType", {
-    is: "scheduled",
-    then: (schema) =>
-      schema
-        .required("End time is required")
-        .test(
-          "isValidEndTime",
-          "End time must be after start time",
-          function (value) {
-            const { startTime } = this.parent;
-            return !startTime || value > startTime;
-          }
-        ),
-    otherwise: (schema) => schema.nullable(),
-  }),
-});
-
-const customStyle = {
-  "& .MuiInputBase-root": {
-    backgroundColor: "white",
-    width: "140px",
-    height: "41px",
-    outline: "none",
-    border: "1px solid #e8e8e8",
-    "&:focus": {
-      outline: "none",
-      border: "none",
-    },
-    "& .MuiOutlinedInput-notchedOutline": {
-      border: "none",
-    },
-    "&:hover .MuiOutlinedInput-notchedOutline": {
-      border: "none",
-    },
-    "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
-      border: "none",
-    },
-    "& .MuiInputBase-input::placeholder": {
-      opacity: 1,
-      color: "#616161",
-      fontSize: "16px",
-      fontWeight: 400,
-      "&:focus": {
-        fontSize: "16px",
-        color: "#616161",
-      },
-    },
-    "& .MuiInputBase-input": {
-      fontSize: "16px",
-      backgroundColor: "white",
-      border: "none",
-      height: "14.5px",
-    },
-    "& .MuiInputAdornment-root": {
-      marginLeft: "0px",
-      height: "41px",
-      background: "transparent",
-    },
-    "& .MuiInputBase-input.Mui-disabled": {
-      opacity: 1,
-      WebkitTextFillColor: "unset",
-      color: "#616161",
-    },
-  },
-};
-
-const stringToColor = (string: string): string => {
-  let hash = 0;
-  for (let i = 0; i < string.length; i++) {
-    hash = string.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  let color = "#";
-  for (let i = 0; i < 3; i++) {
-    const value = (hash >> (i * 8)) & 0xff;
-    color += `00${value.toString(16)}`.slice(-2);
-  }
-  return color;
-};
+import { setMeetings } from "../../redux/slices/meetingsSlice";
+import { MeetingButton } from "./components/MeetingButton";
+import { generateUUID, stringToColor } from "../../utils/helper";
+import { GuestOption, MeetingFormData, MeetingType, schema } from "./types/CreateMeeting.types";
+import { yupResolver } from "@hookform/resolvers/yup";
+import { customStyle } from "./styles/CreateMeeting";
 
 const CreateMeeting = () => {
   const [meetingType, setMeetingType] = useState<MeetingType>("instant");
+  const guestsData = useSelector((state: RootState) => state.guests)
   const [guests, setGuests] = useState<GuestOption[]>(guestsData);
   const [selectedGuests, setSelectedGuests] = useState<GuestOption[]>([]);
-  const [startDate] = useState<any>();
-  const [endDate] = useState<any>();
+  const [meetingId, setMeetingId] = useState<string>("");
+  const [startDate, setStartDate] = useState<any>();
   const [extraCount, setExtraCount] = useState(0);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const dispatch = useDispatch<AppDispatch>();
   const meetings = useSelector((state: RootState) => state.meetings.meetings);
 
-  const methods = useForm({
+  const methods = useForm<MeetingFormData>({
     resolver: yupResolver(schema),
     context: { meetingType },
   });
@@ -204,6 +54,7 @@ const CreateMeeting = () => {
     reset,
     setValue,
     watch,
+    trigger,
     formState: { errors },
   } = methods;
 
@@ -211,8 +62,9 @@ const CreateMeeting = () => {
     setMeetingType(type);
     reset();
     setValue("meetingTitle", "");
-    const resetGuests = guests.map((guest) => ({ ...guest, selected: false }));
-    setGuests(resetGuests);
+    setValue("description", ""); // Reset description as well
+    setValue("date", undefined); // Ensure start date is cleared
+    setGuests(guests.map((guest) => ({ ...guest, selected: false })));
     setSelectedGuests([]);
   };
 
@@ -223,9 +75,15 @@ const CreateMeeting = () => {
   }, [selectedGuests]); // Dependency on selectedGuests to re-run when it changes
 
   useEffect(() => {
-    setValue("startTime", dayjs().format("hh:mm A"));
-    setValue("endTime", dayjs().add(1, "hour").format("hh:mm A"));
-  }, [watch("startDate")]);
+    if (watch("date")) {
+      setValue("startTime", dayjs().format("hh:mm A"));
+      setValue("endTime", dayjs().add(1, "hour").format("hh:mm A"));
+      trigger("startTime")
+      trigger("endTime")
+    }
+  }, [watch("date"), trigger, setValue]);
+
+  console.log(watch("startTime"), watch("endTime"),watch("date"), "timings")
 
   const renderAvatarGroup = useCallback(() => {
     if (selectedGuests.length === 0) {
@@ -278,30 +136,61 @@ const CreateMeeting = () => {
     );
   }, [extraCount, selectedGuests]);
 
-  const onSubmit = (data: any) => {
-    const { startDate, endDate, startTime, endTime, description, meetingTitle } = data;
+  const generateMeetId = () => {
+    const uuid = "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(
+      /[xy]/g,
+      function (c) {
+        const r = (Math.random() * 16) | 0,
+          v = c === "x" ? r : (r & 0x3) | 0x8;
+        return v.toString(16);
+      }
+    );
+    return uuid;
+  };
+
+  console.log(errors, "errors")
+
+  const onSubmit = (data: MeetingFormData) => {
+    const {
+      date, 
+      startTime,
+      endTime,
+      description,
+      meetingTitle,
+    } = data;
+  
+    // Create a new meeting object
     const newMeeting = {
-      id: Math.floor(Math.random() * 10000),  // Use a better unique ID in real applications
+      id: Math.floor(Math.random() * 10000),
       title: meetingTitle,
       time: `${startTime} - ${endTime}`,
       participant: description,
+      meetId: generateMeetId(),
     };
-    let currentDate = new Date(startDate);
-    const end = new Date(endDate);
+  
+    const formattedDate = date
+      ? moment(date).format("YYYY-MM-DD")
+      : moment().format("YYYY-MM-DD");
+  
     let newMeetings = JSON.parse(JSON.stringify(meetings));
-    while (currentDate <= end) {
-      const formattedDate = currentDate.toISOString().split('T')[0];
-      if (!newMeetings[formattedDate]) {
-        newMeetings[formattedDate] = [];
-      }
-      newMeetings[formattedDate].push(newMeeting);
-      currentDate.setDate(currentDate.getDate() + 1);
+  
+    if (!newMeetings[formattedDate]) {
+      newMeetings[formattedDate] = [];
     }
+    newMeetings[formattedDate].push(newMeeting);
+  
     dispatch(setMeetings(newMeetings));
-    reset()
+  
+    reset();
+    setValue("startTime", "");
+    setValue("endTime", "");
     setValue("meetingTitle", "");
+    setSelectedGuests([]);
   };
   
+  
+
+  console.log(meetings, "meetings")
 
   const handleSelectGuest = (event: any, value: GuestOption | null) => {
     if (!value) return;
@@ -326,13 +215,23 @@ const CreateMeeting = () => {
   const handleOpenDialog = () => setIsDialogOpen(true);
   const handleCloseDialog = () => setIsDialogOpen(false);
 
-  const disablePastDates = (current: Moment) => {
-    return current.isBefore(moment(), "day"); // Disable dates before today
+
+  const JoinMeeting = () => {
+    const regex =
+      /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/;
+
+    if (regex.test(meetingId)) {
+      window.location.href = `https://dev-hub.tringbytes.com/meeting/${meetingId}`;
+    } else {
+      alert("Invalid meeting ID!");
+    }
   };
+
+  const today = new Date().toISOString().split('T')[0];
 
   return (
     <div className="create-meeting">
-      <h1>Create Meeting</h1>
+      <p className="title-meeting">Create Meeting</p>
       <div className="meeting-type">
         <MeetingButton
           type="instant"
@@ -347,252 +246,289 @@ const CreateMeeting = () => {
           label="Scheduled Meeting"
         />
       </div>
-      <FormProvider {...methods}>
-        <form onSubmit={handleSubmit(onSubmit)}>
-          {/* Meeting Title */}
-          <div className="meeting-title">
-            <Controller
-              name="meetingTitle"
-              control={control}
-              render={({ field }) => (
-                <>
-                  <TextField
-                    {...field}
-                    placeholder="Enter Meeting title"
-                    variant="outlined"
-                    fullWidth
-                    sx={{
-                      width: "75% !important",
-                      "& .MuiInputBase-input": {
-                        borderRadius: "6px",
-                        backgroundColor: "#f6f6f6",
-                      },
-                      "& .MuiOutlinedInput-notchedOutline": {
-                        borderRadius: "none !important",
-                        borderStyle: "none !important",
-                        borderWidth: "0px !important",
-                      },
-                    }}
-                    error={!!errors.meetingTitle} // Applies error styling
-                  />
-                  {errors.meetingTitle && (
-                    <span className="error-message meeting-title-error">
-                      {errors.meetingTitle.message}
-                    </span>
-                  )}
-                </>
-              )}
+
+      {meetingType === "instant" && (
+        <div>
+          <p className="instant-title">
+            No scheduling required—jump straight into the meeting! &nbsp;
+            <span className="underline-text" onClick={generateUUID}>
+              Create Meeting
+            </span>
+          </p>
+
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "row",
+              justifyContent: "center",
+              gap: 10,
+            }}
+          >
+            <TextField
+              variant="outlined"
+              // fullWidth
+              value={meetingId}
+              onChange={(e) => setMeetingId(e.target.value)}
+              sx={{
+                width: "40%",
+                "& .MuiInputBase-input": {
+                  borderRadius: "6px",
+                  backgroundColor: "#f6f6f6",
+                  height: "10px !important",
+                },
+                "& .MuiOutlinedInput-notchedOutline": {
+                  borderRadius: "none !important",
+                  borderStyle: "none !important",
+                  borderWidth: "0px !important",
+                },
+              }}
             />
-          </div>
 
-          {/* Meeting Description */}
-          <div className="meeting-description">
-            <Controller
-              name="description"
-              control={control}
-              defaultValue=""
-              render={({ field }) => (
-                <>
-                  <textarea
-                    id="description"
-                    className={`textArea ${
-                      true ? "textAreaNonField" : "textAreaField"
-                    }`}
-                    {...field}
-                    placeholder="Enter your description here"
-                    rows={5}
-                    cols={40}
-                  />
-                  {errors.description && (
-                    <span className="error-message">
-                      {errors.description.message}
-                    </span>
-                  )}
-                </>
-              )}
-            />
-          </div>
-
-          {/* Meeting Date and Time */}
-          {meetingType === "scheduled" && (
-            <div className="meeting-time-date">
-              {/* Start Date */}
-              <div className="startDate">
-                <Controller
-                  name="startDate"
-                  control={control}
-                  render={({ field }) => (
-                    <>
-                      <DatePicker
-                        {...field}
-                        format={"MMM D, YYYY"}
-                        placeholder="Start-Date"
-                        value={field.value || startDate}
-                        onChange={(newDate) => field.onChange(newDate)}
-                        className="date"
-                        disabledDate={disablePastDates}
-                      />
-                      {errors.startDate && (
-                        <span className="error-message">
-                          {errors.startDate.message}
-                        </span>
-                      )}
-                    </>
-                  )}
-                />
-              </div>
-              {/* Start Time */}
-              <div className="startTime">
-                <Controller
-                  name="startTime"
-                  control={control}
-                  render={({ field }) => (
-                    <>
-                      <LocalizationProvider dateAdapter={AdapterDayjs}>
-                        <DesktopTimePicker
-                          sx={customStyle}
-                          {...field}
-                          value={
-                            field.value ? dayjs(field.value, "hh:mm A") : null
-                          }
-                          onChange={(newValue) =>
-                            field.onChange(
-                              newValue ? newValue.format("hh:mm A") : ""
-                            )
-                          }
-                          format="hh:mm A"
-                          timeSteps={{ minutes: 1 }}
-                          slotProps={{
-                            textField: {
-                              placeholder: "00:00 AM",
-                            },
-                          }}
-                          disablePast={
-                            dayjs(watch("startDate")).isSame(dayjs(), "day")
-                              ? true
-                              : false
-                          }
-                          disabled={watch("startDate") ? false : true}
-                        />
-                      </LocalizationProvider>
-                      {errors.startTime && (
-                        <span className="error-message">
-                          {errors.startTime.message}
-                        </span>
-                      )}
-                    </>
-                  )}
-                />
-              </div>
-
-              <div style={{ alignSelf: "center" }}>to</div>
-
-              {/* End Time */}
-              <div className="endTime">
-                <Controller
-                  name="endTime"
-                  control={control}
-                  render={({ field }) => (
-                    <>
-                      <LocalizationProvider dateAdapter={AdapterDayjs}>
-                        <DesktopTimePicker
-                          sx={customStyle}
-                          {...field}
-                          value={
-                            field.value ? dayjs(field.value, "hh:mm A") : null
-                          }
-                          onChange={(newValue) =>
-                            field.onChange(
-                              newValue ? newValue.format("hh:mm A") : ""
-                            )
-                          }
-                          format="hh:mm A"
-                          timeSteps={{ minutes: 1 }}
-                          slotProps={{
-                            textField: {
-                              placeholder: "00:00 AM",
-                            },
-                          }}
-                          minTime={dayjs(watch("startDate"))}
-                        />
-                      </LocalizationProvider>
-                      {errors.endTime && (
-                        <span className="error-message">
-                          {errors.endTime.message}
-                        </span>
-                      )}
-                    </>
-                  )}
-                />
-              </div>
-
-              {/* End Date */}
-              <div className="endDate">
-                <Controller
-                  name="endDate"
-                  control={control}
-                  render={({ field }) => (
-                    <>
-                      <DatePicker
-                        {...field}
-                        format={"MMM D, YYYY"}
-                        placeholder="End-Date"
-                        value={field.value || endDate}
-                        onChange={(newDate) => field.onChange(newDate)}
-                        className="date"
-                        disabledDate={disablePastDates}
-                      />
-                      {errors.endDate && (
-                        <span className="error-message">
-                          {errors.endDate.message}
-                        </span>
-                      )}
-                    </>
-                  )}
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Add Guest Button */}
-          <div className="add-guest">
-            <div className="avatar-div">{renderAvatarGroup()}</div>
             <Button
               variant="outlined"
               sx={{
                 fontFamily: "inherit !important",
                 textTransform: "capitalize !important",
                 fontWeight: 400,
-              }}
-              disableRipple
-              disableElevation
-              fullWidth
-              onClick={handleOpenDialog}
-            >
-              Add Guest
-            </Button>
-          </div>
-
-          {/* Create Button */}
-          <div className="cta">
-            <Button
-              variant="contained"
-              sx={{
-                backgroundColor: "#4A98F8 !important",
-                fontFamily: "inherit !important",
-                textTransform: "capitalize !important",
-                fontWeight: 400,
+                width: 200,
               }}
               disableRipple
               disableElevation
               fullWidth
               type="submit"
+              disabled={!meetingId}
+              onClick={() => JoinMeeting()}
             >
-              Create
+              Join Meeting
             </Button>
           </div>
-        </form>
-      </FormProvider>
+        </div>
+      )}
+      {meetingType === "scheduled" && (
+        <FormProvider {...methods}>
+          <form onSubmit={handleSubmit(onSubmit)}>
+            {/* Meeting Title */}
+            <div className="meeting-title">
+              <Controller
+                name="meetingTitle"
+                control={control}
+                render={({ field }) => (
+                  <>
+                    <TextField
+                      {...field}
+                      placeholder="Enter Meeting title"
+                      variant="outlined"
+                      fullWidth
+                      sx={{
+                        width: 700,
+                        "& .MuiInputBase-input": {
+                          borderRadius: "6px",
+                          backgroundColor: "#f6f6f6",
+                        },
+                        "& .MuiOutlinedInput-notchedOutline": {
+                          borderRadius: "none !important",
+                          borderStyle: "none !important",
+                          borderWidth: "0px !important",
+                        },
+                      }}
+                      error={!!errors.meetingTitle} // Applies error styling
+                    />
+                    {errors.meetingTitle && (
+                      <span className="error-message meeting-title-error">
+                        {errors.meetingTitle.message}
+                      </span>
+                    )}
+                  </>
+                )}
+              />
+            </div>
+
+            {/* Meeting Description */}
+            <div className="meeting-description">
+              <Controller
+                name="description"
+                control={control}
+                defaultValue=""
+                render={({ field }) => (
+                  <>
+                    <textarea
+                      id="description"
+                      className={`textArea ${true ? "textAreaNonField" : "textAreaField"
+                        }`}
+                      {...field}
+                      placeholder="Enter your description here"
+                      style={{ width: 700 }}
+                    // rows={5}
+                    // cols={40}
+                    />
+                    {errors.description && (
+                      <span className="error-message">
+                        {errors.description.message}
+                      </span>
+                    )}
+                  </>
+                )}
+              />
+            </div>
+
+            {/* Meeting Date and Time */}
+            {meetingType === "scheduled" && (
+              <div className="meeting-time-date">
+
+
+                {/* Start Date */}
+                <div className="startDate">
+                  <Controller
+                    name="date"
+                    control={control}
+                    render={({ field }) => (
+                      <>
+                        <input
+                          type="date"
+                          placeholder="Start-Date"
+                          value={field.value ? field.value.toString().split("T")[0] : ""} // Ensures string format for date
+                          className="date"
+                          style={{ padding: 10 }}
+                          onChange={(e) => field.onChange(e.target.value)} // Ensure `e.target.value` is passed
+                          min={today} // Ensure `today` is in the format "YYYY-MM-DD"
+                        />
+                        {errors.date && (
+                          <span className="error-message">{errors.date.message}</span>
+                        )}
+                      </>
+                    )}
+                  />
+                </div>
+
+
+
+                {/* Start Time */}
+                <div className="startTime">
+                  <Controller
+                    name="startTime"
+                    control={control}
+                    render={({ field }) => (
+                      <>
+                        <LocalizationProvider dateAdapter={AdapterDayjs}>
+                          <DesktopTimePicker
+                            sx={customStyle}
+                            {...field}
+                            value={
+                              field.value ? dayjs(field.value, "hh:mm A") : null
+                            }
+                            onChange={(newValue) =>
+                              field.onChange(
+                                newValue ? newValue.format("hh:mm A") : ""
+                              )
+                            }
+                            format="hh:mm A"
+                            timeSteps={{ minutes: 1 }}
+                            slotProps={{
+                              textField: {
+                                placeholder: "00:00 AM",
+                              },
+                            }}
+                            disablePast={
+                              dayjs(watch("date")).isSame(dayjs(), "day")
+                                ? true
+                                : false
+                            }
+                            disabled={watch("date") ? false : true}
+                          />
+                        </LocalizationProvider>
+                        {errors.startTime && (
+                          <span className="error-message">
+                            {errors.startTime.message}
+                          </span>
+                        )}
+                      </>
+                    )}
+                  />
+                </div>
+
+                <div style={{ alignSelf: "center" }}>to</div>
+
+                {/* End Time */}
+                <div className="endTime">
+                  <Controller
+                    name="endTime"
+                    control={control}
+                    render={({ field }) => (
+                      <>
+                        <LocalizationProvider dateAdapter={AdapterDayjs}>
+                          <DesktopTimePicker
+                            sx={customStyle}
+                            {...field}
+                            value={
+                              field.value ? dayjs(field.value, "hh:mm A") : null
+                            }
+                            onChange={(newValue) =>
+                              field.onChange(
+                                newValue ? newValue.format("hh:mm A") : ""
+                              )
+                            }
+                            format="hh:mm A"
+                            timeSteps={{ minutes: 1 }}
+                            slotProps={{
+                              textField: {
+                                placeholder: "00:00 AM",
+                              },
+                            }}
+                            minTime={dayjs(watch("date"))}
+                          />
+                        </LocalizationProvider>
+                        {errors.endTime && (
+                          <span className="error-message">
+                            {errors.endTime.message}
+                          </span>
+                        )}
+                      </>
+                    )}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Add Guest Button */}
+            <div className="add-guest">
+              <div className="avatar-div">{renderAvatarGroup()}</div>
+              <Button
+                variant="outlined"
+                sx={{
+                  fontFamily: "inherit !important",
+                  textTransform: "capitalize !important",
+                  fontWeight: 400,
+                }}
+                disableRipple
+                disableElevation
+                fullWidth
+                onClick={handleOpenDialog}
+              >
+                Add Guest
+              </Button>
+            </div>
+
+            {/* Create Button */}
+            <div className="cta">
+              <Button
+                variant="contained"
+                sx={{
+                  backgroundColor: "#4A98F8 !important",
+                  fontFamily: "inherit !important",
+                  textTransform: "capitalize !important",
+                  fontWeight: 400,
+                }}
+                disableRipple
+                disableElevation
+                fullWidth
+                type="submit"
+              >
+                Create
+              </Button>
+            </div>
+          </form>
+        </FormProvider>
+      )}
 
       <Dialog open={isDialogOpen} fullWidth>
         <DialogTitle

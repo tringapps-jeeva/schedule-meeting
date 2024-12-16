@@ -1,9 +1,11 @@
 import { configureStore } from '@reduxjs/toolkit';
 import meetingsReducer from "./slices/meetingsSlice";
+import guestsReducer from "./slices/guestsSlice"
 
 const store = configureStore({
   reducer: {
     meetings: meetingsReducer,
+    guests: guestsReducer,
   }
 });
 
