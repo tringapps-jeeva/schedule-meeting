@@ -1,4 +1,3 @@
-import { yupResolver } from "@hookform/resolvers/yup";
 import * as Yup from "yup";
 import moment from 'moment';
 
@@ -6,13 +5,15 @@ import moment from 'moment';
 export type MeetingType = "instant" | "scheduled";
 
 export interface GuestOption {
-  email: string;
+  externalUserId : string
+  emailId: string;
   selected: boolean;
+  userName : string
 }
 
 export interface MeetingFormData {
   meetingTitle: string;  
-  description?: string;  
+  description: string;  
   date?: Date;           
   startTime?: string;    
   endTime?: string;      
@@ -20,7 +21,7 @@ export interface MeetingFormData {
 
 export const schema = Yup.object().shape({
   meetingTitle: Yup.string().required("Meeting title is required"),
-  description: Yup.string(),
+  description: Yup.string().required("Meeting Description is required"),
   date: Yup.date().when("$meetingType", {
     is: "scheduled",
     then: (schema) =>
@@ -63,3 +64,19 @@ export const schema = Yup.object().shape({
   }),
 });
 
+interface Participant {
+  externalUserId: string;
+  userName: string;
+  emailId: string;
+}
+
+export interface MeetingData {
+  title: string;
+  description: string;
+  type: "SCHEDULE" | "OTHER"; // Adjust the type based on possible values
+  startTime: string;
+  endTime: string;
+  hostId: string;
+  participants: Participant[];
+  organizationId: string;
+}

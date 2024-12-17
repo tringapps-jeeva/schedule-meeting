@@ -15,33 +15,39 @@ import {
 } from "@mui/material";
 import { LocalizationProvider, DesktopTimePicker } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { Dispatch, FC, SetStateAction, useCallback, useEffect, useState } from "react";
 import { FormProvider, Controller, useForm } from "react-hook-form";
 import dayjs from "dayjs";
 import CloseIcon from "@mui/icons-material/Close";
 import CheckIcon from "@mui/icons-material/Check";
 
-import moment, { Moment } from "moment";
-import { useDispatch, useSelector } from "react-redux";
-import { AppDispatch, RootState } from "../../redux/store";
-import { setMeetings } from "../../redux/slices/meetingsSlice";
+import moment from "moment";
+import { useSelector } from "react-redux";
+import { RootState } from "../../redux/store";
 import { MeetingButton } from "./components/MeetingButton";
 import { generateUUID, stringToColor } from "../../utils/helper";
-import { GuestOption, MeetingFormData, MeetingType, schema } from "./types/CreateMeeting.types";
+import { GuestOption, MeetingData, MeetingFormData, MeetingType, schema } from "./types/CreateMeeting.types";
 import { yupResolver } from "@hookform/resolvers/yup";
 import { customStyle } from "./styles/CreateMeeting";
+import axios from "axios";
 
-const CreateMeeting = () => {
+interface CreateMeetingProps {
+  setMeetingCreated: Dispatch<SetStateAction<boolean>>;
+}
+const CreateMeeting: FC<CreateMeetingProps> = ({ setMeetingCreated }) => {
   const [meetingType, setMeetingType] = useState<MeetingType>("instant");
   const guestsData = useSelector((state: RootState) => state.guests)
   const [guests, setGuests] = useState<GuestOption[]>(guestsData);
   const [selectedGuests, setSelectedGuests] = useState<GuestOption[]>([]);
   const [meetingId, setMeetingId] = useState<string>("");
-  const [startDate, setStartDate] = useState<any>();
   const [extraCount, setExtraCount] = useState(0);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const dispatch = useDispatch<AppDispatch>();
-  const meetings = useSelector((state: RootState) => state.meetings.meetings);
+  const currentUserDetails = useSelector((state: RootState) => state.organization.currentUser)
+  const organizationDetails = useSelector((state: RootState) => state.organization.organization)
+  const [participantError, setParticipantError] = useState<string | null>(null); // Local state for the error message
+  const [tempSelectedGuests, setTempSelectedGuests] = useState<GuestOption[]>(
+    []
+  );
 
   const methods = useForm<MeetingFormData>({
     resolver: yupResolver(schema),
@@ -62,17 +68,19 @@ const CreateMeeting = () => {
     setMeetingType(type);
     reset();
     setValue("meetingTitle", "");
-    setValue("description", ""); // Reset description as well
-    setValue("date", undefined); // Ensure start date is cleared
+    setValue("description", "");
+    setValue("date", undefined);
     setGuests(guests.map((guest) => ({ ...guest, selected: false })));
     setSelectedGuests([]);
+    setParticipantError(null)
+    setTempSelectedGuests([])
   };
 
   useEffect(() => {
     const visibleGuests = selectedGuests.slice(0, 5);
     const newExtraCount = selectedGuests.length - visibleGuests.length;
-    setExtraCount(newExtraCount); // Update the extra count in state
-  }, [selectedGuests]); // Dependency on selectedGuests to re-run when it changes
+    setExtraCount(newExtraCount);
+  }, [selectedGuests]);
 
   useEffect(() => {
     if (watch("date")) {
@@ -81,9 +89,8 @@ const CreateMeeting = () => {
       trigger("startTime")
       trigger("endTime")
     }
-  }, [watch("date"), trigger, setValue]);
+  }, [trigger, setValue, watch("date")]);
 
-  console.log(watch("startTime"), watch("endTime"),watch("date"), "timings")
 
   const renderAvatarGroup = useCallback(() => {
     if (selectedGuests.length === 0) {
@@ -95,16 +102,16 @@ const CreateMeeting = () => {
       <AvatarGroup total={selectedGuests.length}>
         {visibleGuests.map((guest) => (
           <Avatar
-            key={guest.email}
+            key={guest.emailId}
             sx={{
-              bgcolor: stringToColor(guest.email),
+              bgcolor: stringToColor(guest.emailId),
               color: "#fff",
               width: 24,
               height: 24,
               fontSize: "10px",
             }}
           >
-            {guest.email.charAt(0).toUpperCase()}
+            {guest.emailId.charAt(0).toUpperCase()}
           </Avatar>
         ))}
 
@@ -136,80 +143,58 @@ const CreateMeeting = () => {
     );
   }, [extraCount, selectedGuests]);
 
-  const generateMeetId = () => {
-    const uuid = "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(
-      /[xy]/g,
-      function (c) {
-        const r = (Math.random() * 16) | 0,
-          v = c === "x" ? r : (r & 0x3) | 0x8;
-        return v.toString(16);
-      }
-    );
-    return uuid;
-  };
 
-  console.log(errors, "errors")
-
-  const onSubmit = (data: MeetingFormData) => {
+  const onSubmit = async (data: MeetingFormData) => {
+    if (selectedGuests.length === 0) {
+      setParticipantError("Please select at least one guest before submitting the meeting.");
+      return;
+    }
+    setParticipantError(null);
     const {
-      date, 
+      date,
       startTime,
       endTime,
       description,
       meetingTitle,
     } = data;
-  
-    // Create a new meeting object
-    const newMeeting = {
-      id: Math.floor(Math.random() * 10000),
-      title: meetingTitle,
-      time: `${startTime} - ${endTime}`,
-      participant: description,
-      meetId: generateMeetId(),
-    };
-  
-    const formattedDate = date
-      ? moment(date).format("YYYY-MM-DD")
-      : moment().format("YYYY-MM-DD");
-  
-    let newMeetings = JSON.parse(JSON.stringify(meetings));
-  
-    if (!newMeetings[formattedDate]) {
-      newMeetings[formattedDate] = [];
-    }
-    newMeetings[formattedDate].push(newMeeting);
-  
-    dispatch(setMeetings(newMeetings));
-  
-    reset();
-    setValue("startTime", "");
-    setValue("endTime", "");
-    setValue("meetingTitle", "");
-    setSelectedGuests([]);
-  };
-  
-  
-
-  console.log(meetings, "meetings")
-
-  const handleSelectGuest = (event: any, value: GuestOption | null) => {
-    if (!value) return;
-    const updatedGuests = guests.map((guest) =>
-      guest.email === value.email
-        ? { ...guest, selected: !guest.selected }
-        : guest
-    );
-    const updatedSelectedGuests = updatedGuests.filter(
-      (guest) => guest.selected
-    );
-    setGuests(updatedGuests);
-    setSelectedGuests(updatedSelectedGuests);
-  };
-
-  const handleClearAll = () => {
+    const formattedDate = date ? moment(date).format("YYYY-MM-DD") : moment().format("YYYY-MM-DD");
     const resetGuests = guests.map((guest) => ({ ...guest, selected: false }));
-    setGuests(resetGuests);
-    setSelectedGuests([]);
+    const meetingData: MeetingData = {
+      title: meetingTitle,
+      description: description,
+      type: "SCHEDULE",
+      startTime: moment(`${formattedDate} ${startTime}`).toISOString(),
+      endTime: moment(`${formattedDate} ${endTime}`).toISOString(),
+      hostId: currentUserDetails?.externalUserId!,
+      participants: selectedGuests.map(({ selected, ...rest }) => rest),
+      organizationId: organizationDetails.organizationId,
+    };
+    const url = "https://3opcuaygu6.execute-api.ap-south-1.amazonaws.com/development/meeting/create";
+    try {
+      const response = await axios.post(url, meetingData);
+      alert(response.data.message)
+      reset();
+      setValue("startTime", "");
+      setValue("endTime", "");
+      setValue("meetingTitle", "");
+      setSelectedGuests([]);
+      setGuests(resetGuests)
+      setMeetingCreated(true);
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        if (error.response) {
+          console.error("Error creating meeting:", error.response.data.message);
+          alert(error.response.data.message)
+        } else if (error.request) {
+          console.error("No response received:", error.request);
+        } else {
+          console.error("Error setting up the request:", error.message);
+        }
+      } else {
+        console.error("Unexpected error:", error);
+      }
+    }
+
   };
 
   const handleOpenDialog = () => setIsDialogOpen(true);
@@ -229,6 +214,63 @@ const CreateMeeting = () => {
 
   const today = new Date().toISOString().split('T')[0];
 
+  useEffect(() => {
+    if (participantError) {
+      if (selectedGuests.length === 0) {
+        setParticipantError("Please select at least one guest before submitting the meeting.");
+      } else {
+        setParticipantError(null);
+      }
+    }
+  }, [selectedGuests, participantError]);
+
+
+
+
+  // Handle guest selection in the autocomplete
+  const handleSelectGuest = (event: any, value: GuestOption | null) => {
+    if (!value) return;
+    const updatedGuests = guests.map((guest) =>
+      guest.emailId === value.emailId
+        ? { ...guest, selected: !guest.selected }
+        : guest
+    );
+    const updatedTempSelectedGuests = updatedGuests.filter(
+      (guest) => guest.selected
+    );
+    setGuests(updatedGuests);
+    setTempSelectedGuests(updatedTempSelectedGuests);
+  };
+
+  // Submit button handler
+  const handleSubmitGuest = () => {
+    setSelectedGuests(tempSelectedGuests);
+    handleCloseDialog()
+  };
+
+  // Clear button handler
+  const handleClearAll = () => {
+    const resetGuests = guests.map((guest) => ({ ...guest, selected: false }));
+    setGuests(resetGuests);
+    setTempSelectedGuests([]);
+    setSelectedGuests([]);
+  };
+
+  // Handle deleting a guest chip
+  const handleDeleteGuest = (emailId: string) => {
+    const updatedGuests = guests.map((guest) =>
+      guest.emailId === emailId ? { ...guest, selected: false } : guest
+    );
+    const updatedTempSelectedGuests = updatedGuests.filter(
+      (guest) => guest.selected
+    );
+    setGuests(updatedGuests);
+    setTempSelectedGuests(updatedTempSelectedGuests);
+  };
+
+
+
+  console.log(errors)
   return (
     <div className="create-meeting">
       <p className="title-meeting">Create Meeting</p>
@@ -345,30 +387,32 @@ const CreateMeeting = () => {
 
             {/* Meeting Description */}
             <div className="meeting-description">
-              <Controller
-                name="description"
-                control={control}
-                defaultValue=""
-                render={({ field }) => (
-                  <>
-                    <textarea
-                      id="description"
-                      className={`textArea ${true ? "textAreaNonField" : "textAreaField"
-                        }`}
-                      {...field}
-                      placeholder="Enter your description here"
-                      style={{ width: 700 }}
-                    // rows={5}
-                    // cols={40}
-                    />
-                    {errors.description && (
-                      <span className="error-message">
-                        {errors.description.message}
-                      </span>
-                    )}
-                  </>
-                )}
-              />
+              <div>
+                <Controller
+                  name="description"
+                  control={control}
+                  defaultValue=""
+                  render={({ field }) => (
+                    <>
+                      <textarea
+                        id="description"
+                        className={`textArea ${true ? "textAreaNonField" : "textAreaField"
+                          }`}
+                        {...field}
+                        placeholder="Enter your description here"
+                        style={{ width: 700 }}
+                      // rows={5}
+                      // cols={40}
+                      />
+                    </>
+                  )}
+                />
+              </div>
+              {errors.description && (
+                <div className="error-message">
+                  {errors.description.message}
+                </div>
+              )}
             </div>
 
             {/* Meeting Date and Time */}
@@ -491,21 +535,28 @@ const CreateMeeting = () => {
 
             {/* Add Guest Button */}
             <div className="add-guest">
-              <div className="avatar-div">{renderAvatarGroup()}</div>
-              <Button
-                variant="outlined"
-                sx={{
-                  fontFamily: "inherit !important",
-                  textTransform: "capitalize !important",
-                  fontWeight: 400,
-                }}
-                disableRipple
-                disableElevation
-                fullWidth
-                onClick={handleOpenDialog}
-              >
-                Add Guest
-              </Button>
+              <>
+                <div className="avatar-div">{renderAvatarGroup()}</div>
+                <Button
+                  variant="outlined"
+                  sx={{
+                    fontFamily: "inherit !important",
+                    textTransform: "capitalize !important",
+                    fontWeight: 400,
+                  }}
+                  disableRipple
+                  disableElevation
+                  fullWidth
+                  onClick={handleOpenDialog}
+                >
+                  Add Guest
+                </Button>
+              </>
+              {participantError && (
+                <div className="error-message" style={{ color: 'red', marginTop: '10px' }}>
+                  {participantError}
+                </div>
+              )}
             </div>
 
             {/* Create Button */}
@@ -543,14 +594,14 @@ const CreateMeeting = () => {
             <CloseIcon />
           </IconButton>
         </DialogTitle>
-        <DialogContent
-          style={{ display: "flex", flexDirection: "column", gap: "20px" }}
-        >
+
+        <DialogContent style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+          {/* Guest selection */}
           <div>
             <Typography>Add email IDs of guests:</Typography>
             <Autocomplete
               options={guests}
-              getOptionLabel={(option) => option.email}
+              getOptionLabel={(option) => option.emailId}
               renderOption={(props, option) => (
                 <Box
                   component="li"
@@ -561,7 +612,7 @@ const CreateMeeting = () => {
                     alignItems: "center",
                   }}
                 >
-                  {option.email}
+                  {option.emailId}
                   {option.selected && <CheckIcon color="primary" />}
                 </Box>
               )}
@@ -572,9 +623,7 @@ const CreateMeeting = () => {
                   placeholder="Select email"
                   sx={{
                     "& .MuiOutlinedInput-notchedOutline": {
-                      borderRadius: "none !important",
-                      borderStyle: "none !important",
-                      borderWidth: "0px !important",
+                      border: "none",
                     },
                     "& .MuiOutlinedInput-root": {
                       border: "1px solid #ececec !important",
@@ -589,10 +638,12 @@ const CreateMeeting = () => {
               }}
               disableCloseOnSelect
               isOptionEqualToValue={(option, value) =>
-                option.email === value.email
+                option.emailId === value.emailId
               }
             />
           </div>
+
+          {/* Selected guests */}
           <div>
             <Typography>Selected Guests:</Typography>
             <Box
@@ -605,21 +656,12 @@ const CreateMeeting = () => {
                 minHeight: "200px",
               }}
             >
-              {selectedGuests.length > 0 ? (
-                selectedGuests.map((guest) => (
+              {tempSelectedGuests.length > 0 ? (
+                tempSelectedGuests.map((guest) => (
                   <Chip
-                    key={guest.email}
-                    label={guest.email}
-                    onDelete={() => {
-                      const updatedGuests = guests.map((g) =>
-                        g.email === guest.email ? { ...g, selected: false } : g
-                      );
-                      const updatedSelectedGuests = updatedGuests.filter(
-                        (g) => g.selected
-                      );
-                      setGuests(updatedGuests);
-                      setSelectedGuests(updatedSelectedGuests);
-                    }}
+                    key={guest.emailId}
+                    label={guest.emailId}
+                    onDelete={() => handleDeleteGuest(guest.emailId)}
                     sx={{
                       margin: "4px",
                       backgroundColor: "rgba(74, 152, 248, 0.5) !important",
@@ -632,6 +674,7 @@ const CreateMeeting = () => {
             </Box>
           </div>
         </DialogContent>
+
         <DialogActions>
           <Button
             onClick={handleClearAll}
@@ -646,6 +689,20 @@ const CreateMeeting = () => {
             disableElevation
           >
             Clear All
+          </Button>
+          <Button
+            onClick={handleSubmitGuest}
+            sx={{
+              backgroundColor: "#4A98F8 !important",
+              fontFamily: "inherit !important",
+              textTransform: "capitalize !important",
+              fontWeight: 400,
+            }}
+            variant="contained"
+            disableRipple
+            disableElevation
+          >
+            Submit
           </Button>
         </DialogActions>
       </Dialog>
