@@ -1,125 +1,48 @@
-import React, { useEffect, useRef, useState } from 'react';
-import './App.scss';
-import CreateMeeting from './components/CreateMeeting/CreateMeeting';
-import JoinMeeting from './components/JoinMeeting/JoinMeeting';
-import axios from "axios";
-import { useDispatch, useSelector } from 'react-redux';
-import { setOrganization, setCurrentUserDetails } from './redux/slices/OrganizationandUser';
-import { CreateUserRequest, CreateUserResponse, currentUserDetailsfromFrontend, MeetingResponse, OrganizationResponse, TokenRequest, UserDetailsResponse } from './App.types';
-import { RootState } from './redux/store';
-import { setMeetings } from './redux/slices/meetingsSlice';
-import { Backdrop, CircularProgress } from '@mui/material';
+import React from "react";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import TringMeetLobby from "./pages/TringMeetLobby/TringMeetLobby";
+import TringMeeting from "./pages/TringMeet/TringMeet";
+import { TringVideoConference } from "@tringappsresearchlabs/tring-meet-web";
+// import { TringVideoConference } from '@tringappsresearchlabs/tring-meet-web';
 
-function App() {
-  const dispatch = useDispatch();
-  const organizationDetails = useSelector((state: RootState) => state.organization.organization);
-  const currentUserDetails = useSelector((state: RootState) => state.organization.currentUser);
-  const isEffectRun = useRef(false);
-  const tokenisEffectRun = useRef(false);
+const App = () => {
+  const handleMeetingCreated = () => {
+    alert("Meeting created");
+  };
 
-  const [isOrganizationFetched, setIsOrganizationFetched] = useState(false);
-  const [isUserCreated, setIsUserCreated] = useState(false);
-  const [isMeetingDetailsFetched, setIsMeetingDetailsFetched] = useState(false);
-  const [isMeetingCreated, setMeetingCreated] = useState<boolean>(false);
+  const Participant = [{
+    userName: "Jeeva",
+    externalUserId: "participant-id",
+    emailId: "jeeva.j@tringapps.com",
+  }];
 
-  // Loader states
-  const [isFetchingOrganization, setIsFetchingOrganization] = useState(false);
-  const [isCreatingUser, setIsCreatingUser] = useState(false);
-  const [isFetchingMeetings, setIsFetchingMeetings] = useState(false);
-
-  // Fetch Organization API
-  useEffect(() => {
-    const fetchData = async (): Promise<void> => {
-      if (isOrganizationFetched || tokenisEffectRun.current) return;
-      tokenisEffectRun.current = true;
-      setIsFetchingOrganization(true);
-      const url =
-        "https://3opcuaygu6.execute-api.ap-south-1.amazonaws.com/development/organization/token";
-      const payload: TokenRequest = {
-        token: "caae14d272657719c6d9cca1dca8b83d0a7aaf9735bf1b1d7bd408d36be357e3",
-      };
-      try {
-        const response = await axios.post<OrganizationResponse>(url, payload);
-        dispatch(setOrganization(response.data.organization));
-        setIsOrganizationFetched(true);
-      } catch (error) {
-        console.error("Error fetching organization:", error);
-      } finally {
-        setIsFetchingOrganization(false);
-      }
-    };
-    fetchData();
-  }, [dispatch, isOrganizationFetched]);
-
-  // Create User API
-  useEffect(() => {
-    const createUser = async (): Promise<void> => {
-      if (isUserCreated || !organizationDetails || isEffectRun.current) return;
-      isEffectRun.current = true;
-      setIsCreatingUser(true);
-      const userCreateUrl =
-        "https://3opcuaygu6.execute-api.ap-south-1.amazonaws.com/development/user/create";
-
-      const userPayload: CreateUserRequest = {
-        externalUserId: currentUserDetailsfromFrontend.externalUserId,
-        userName: currentUserDetailsfromFrontend.userName,
-        emailId: currentUserDetailsfromFrontend.emailId,
-        avatarUrl: currentUserDetailsfromFrontend.avatarUrl,
-        organizationId: organizationDetails.organizationId,
-      };
-      try {
-        await axios.post<CreateUserResponse>(userCreateUrl, userPayload);
-        const currentUserDetailsUrl = `https://3opcuaygu6.execute-api.ap-south-1.amazonaws.com/development/user/${currentUserDetailsfromFrontend.externalUserId}`;
-        const currentUserDetailsResponse = await axios.get<UserDetailsResponse>(currentUserDetailsUrl);
-        dispatch(setCurrentUserDetails(currentUserDetailsResponse.data));
-        setIsUserCreated(true);
-      } catch (error) {
-        console.error("Error creating user:", error);
-      } finally {
-        setIsCreatingUser(false);
-      }
-    };
-
-    createUser();
-  }, [organizationDetails, isUserCreated, dispatch]);
-
-  // Fetch Meetings API
-  useEffect(() => {
-    const fetchMeetingDetails = async () => {
-      if (!currentUserDetails) return;
-      setIsFetchingMeetings(true);
-      try {
-        const apiUrl = `https://3opcuaygu6.execute-api.ap-south-1.amazonaws.com/development/meetings/${currentUserDetails.externalUserId}`;
-        const response = await axios.get<MeetingResponse[]>(apiUrl);
-        const meetingsData = Array.isArray(response.data) ? response.data : [response.data];
-        dispatch(setMeetings(meetingsData));
-        setMeetingCreated(false);
-        setIsMeetingDetailsFetched(true);
-      } catch (err) {
-        console.error("Error fetching meetings:", err);
-      } finally {
-        setIsFetchingMeetings(false);
-      }
-    };
-
-    if (!isMeetingDetailsFetched && currentUserDetails) {
-      fetchMeetingDetails();
-    }
-    if (isMeetingCreated && currentUserDetails) {
-      fetchMeetingDetails();
-    }
-  }, [currentUserDetails, isMeetingDetailsFetched, isMeetingCreated, dispatch]);
-
+  const CreateUserRequest = {
+    externalUserId: "jeeva-id",
+    userName: "external-user",
+    emailId: "externalUser@mailinator.com",
+    avatarUrl: "",
+  };
+  
   return (
-    <div className="tring-meeting-lobby">
-      <Backdrop open={isFetchingOrganization || isCreatingUser} style={{ zIndex: 1200, color: '#fff' }}>
-        <CircularProgress color="primary" />
-      </Backdrop>
-
-      <CreateMeeting setMeetingCreated={setMeetingCreated} />
-      <JoinMeeting loader={isFetchingMeetings} />
-      </div>
+    // <Router>
+    //   <Routes>
+    //     <Route path="/" element={<TringMeetLobby />} />
+    //     <Route path="meeting/:meetingId" element={<TringMeeting />} />
+    //     <Route
+    //       path="*"
+    //       element={<h1 className="not-found">Page Not Found!</h1>}
+    //     />
+    //   </Routes>
+    // </Router>
+    <TringVideoConference
+      onSuccess={()=>{}}
+      onError={()=>{}}
+      token="eyJraWQiOiJERmdxaERNN0pRT2VXWlRQdyt4UnRoRVA3UHN4bDFcL1VmNTZSR3YxNVBSOD0iLCJhbGciOiJSUzI1NiJ9.eyJ2aWRlb2NoYXRfb3JnX2FwaWtleSI6IjEwYjJjNzFmY2FkMzE5OGQ5NjgyY2Q1YmQzNWI0MDQzNmQ4NDYxMTIzMWIxNTQzNDMzYzgwMjFlNjMyNTM5M2YiLCJzdWIiOiI2NWVhMDlkOC0zMmMwLTQyMTQtYjA0Mi0wZTk0NzY4M2FmMzciLCJjb2duaXRvOmdyb3VwcyI6WyJhZG1pbiJdLCJlbWFpbF92ZXJpZmllZCI6dHJ1ZSwiaHR0cHM6XC9cL2hhc3VyYS5pb1wvand0XC9jbGFpbXMiOiJ7XCJ4LWhhc3VyYS11c2VyLWlkXCI6XCI2NWVhMDlkOC0zMmMwLTQyMTQtYjA0Mi0wZTk0NzY4M2FmMzdcIixcIngtaGFzdXJhLWRlZmF1bHQtcm9sZVwiOlwiYWRtaW5cIixcIngtaGFzdXJhLWFsbG93ZWQtcm9sZXNcIjpbXCJ1c2VyXCIsXCJhZG1pblwiXX0iLCJjaGF0X29yZ19uYW1lIjoiVHJpbmdodWIiLCJpc3MiOiJodHRwczpcL1wvY29nbml0by1pZHAuYXAtc291dGgtMS5hbWF6b25hd3MuY29tXC9hcC1zb3V0aC0xX3F6OWh2Q2c1SCIsImNvZ25pdG86dXNlcm5hbWUiOiI2NWVhMDlkOC0zMmMwLTQyMTQtYjA0Mi0wZTk0NzY4M2FmMzciLCJvcmlnaW5fanRpIjoiZDQ2YjBkZDktNDEwYi00MjI2LTlmNTItZTk2NDdlNDQwZjU0IiwiYXVkIjoiN2Q3N3Axamw3NG84ZHRlcnJta2lwc2Q2YzciLCJldmVudF9pZCI6IjY3NzUwNGFlLWUzNDEtNDM3Ni1iZDlkLWVmNmRmMzcxZGVlZCIsImNoYXRfb3JnX2FwaWtleSI6ImYxZmE0YzZhMWM1OWQ5MzEyOGZlOTE5ZTk0YTViOTFiZDExZWRlN2I2MzI5N2EyYzdiMWI4NTdmZjBjMWUxMzYiLCJ0b2tlbl91c2UiOiJpZCIsInZpZGVvY2hhdF9vcmdfbmFtZSI6IlRyaW5naHViIiwiYXV0aF90aW1lIjoxNzM0OTMwODgyLCJuYW1lIjoiU3VwZXJhZG1pbiIsImV4cCI6MTczNDkzNDQ4MSwiaWF0IjoxNzM0OTMwODgyLCJqdGkiOiJiYTljZThiNC0zMTQ3LTQzYzctYjJjOS1mOWM2NGExNWZiMDkiLCJlbWFpbCI6InN1cGVyYWRtaW5AdHJpbmdodWIuY29tIn0.ADR2gih8JuwaurOMlVk-fzaPCzAT-mlwc1TfSmc_v4iREUFipU_h52D-ovbFwFkk7BqBIhg5-6XFVS0U963vazseCp6UKNKwXQwjDxiPNWi9YbbTUjrktMV-AD6dWWkEHBBE9zN3P2wq8jQVDIZIkOaO17qmmcOonS6nkSzMMRwp2u-odzx7PGAiEeyl7Ppz9bRd0LJHhrNvqIbb3fNkzXtYbgx7C8661FfeQxd0ds8g3OLM0K6D939ARVFSQQIr6FXSO4hQs9Fw6RLP-r2QQ_0S0OiG4Dc3m2uG23koAuLSjhicO0l9xEJvWcCIaB6xeKN0e-6oLpeDjpjhPCnGqw"
+      appId="10b2c71fcad3198d9682cd5bd35b40436d84611231b1543433c8021e6325393f"
+      userDetails={CreateUserRequest}
+      participants={Participant}
+    />
   );
-}
+};
 
 export default App;

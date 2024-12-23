@@ -376,9 +376,9 @@ const CreateMeeting: FC<CreateMeetingProps> = ({ setMeetingCreated }) => {
                       error={!!errors.meetingTitle} // Applies error styling
                     />
                     {errors.meetingTitle && (
-                      <span className="error-message meeting-title-error">
+                      <div className="error-message meeting-title-error">
                         {errors.meetingTitle.message}
-                      </span>
+                      </div>
                     )}
                   </>
                 )}
@@ -387,7 +387,7 @@ const CreateMeeting: FC<CreateMeetingProps> = ({ setMeetingCreated }) => {
 
             {/* Meeting Description */}
             <div className="meeting-description">
-              <div>
+              <div className="textarea-description">
                 <Controller
                   name="description"
                   control={control}
@@ -400,7 +400,6 @@ const CreateMeeting: FC<CreateMeetingProps> = ({ setMeetingCreated }) => {
                           }`}
                         {...field}
                         placeholder="Enter your description here"
-                        style={{ width: 700 }}
                       // rows={5}
                       // cols={40}
                       />

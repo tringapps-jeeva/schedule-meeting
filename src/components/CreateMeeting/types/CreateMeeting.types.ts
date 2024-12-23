@@ -53,8 +53,8 @@ export const schema = Yup.object().shape({
             if (!startTime) return true;
 
             // Use moment to compare startTime and endTime
-            const start = moment(startTime, "HH:mm");
-            const end = moment(value, "HH:mm");
+            const start = moment(startTime, ["hh:mm A", "HH:mm"]); // Support both 12-hour and 24-hour formats
+            const end = moment(value, ["hh:mm A", "HH:mm"]); // Support both 12-hour and 24-hour formats
 
             // If endTime is before startTime, show the error
             return end.isAfter(start);
